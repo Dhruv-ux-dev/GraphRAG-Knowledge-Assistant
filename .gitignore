@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.secrets.yaml
+*.secrets.yml
+
+# IDEs and editors
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Local databases and generated data
+*.db
+*.sqlite
+*.sqlite3
+data/
+storage/
+chroma_db/
+
+# Model and cache files
+.cache/
+models/
+*.gguf
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Docker overrides
+docker-compose.override.yml
