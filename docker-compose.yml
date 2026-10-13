@@ -1,39 +1,47 @@
-version: '3.8'
-
 services:
   neo4j:
-    image: neo4j:latest
+    image: neo4j:5
     container_name: graphrag-neo4j
     ports:
       - "7474:7474"  # Browser
       - "7687:7687"  # Bolt
     environment:
       - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-change_me_local_only}
-      - NEO4J_PLUGINS='["apoc"]'
     volumes:
       - neo4j_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      # NEO4J_AUTH is "neo4j/<password>"; strip the user prefix for cypher-shell
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p \"$${NEO4J_AUTH#neo4j/}\" 'RETURN 1' || exit 1"]
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 12
+      start_period: 30s
 
-  # Ollama container (optional - can use local installation instead)
+  # Ollama container (optional - you can point OLLAMA_HOST at a local install instead)
   ollama:
     image: ollama/ollama:latest
     container_name: graphrag-ollama
     ports:
       - "11434:11434"
+    environment:
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
     volumes:
       - ollama_data:/root/.ollama
-    # Pull the model on startup
+    # Start the server, wait until it answers, then pull the model (cached in the volume afterwards)
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         /bin/ollama serve &
-        sleep 5
-        /bin/ollama pull llama3.2
+        until /bin/ollama list >/dev/null 2>&1; do sleep 1; done
+        /bin/ollama pull "$${OLLAMA_MODEL}"
         wait
+    healthcheck:
+      # Healthy only once the model has finished downloading
+      test: ["CMD-SHELL", "ollama list | grep -q \"$${OLLAMA_MODEL}\""]
+      interval: 15s
+      timeout: 10s
+      retries: 120
+      start_period: 30s
 
   streamlit:
     build:
@@ -47,11 +55,12 @@ services:
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=${NEO4J_PASSWORD:-change_me_local_only}
       - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
     depends_on:
       neo4j:
         condition: service_healthy
       ollama:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   neo4j_data:
